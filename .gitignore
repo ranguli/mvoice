@@ -29,10 +29,6 @@
 *.a
 *.lib
 
-# custom makefile
-mvoice.mk
-makefile
-
 # CMake
 build/
 build-*/
