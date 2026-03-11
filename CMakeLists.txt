@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.16)
+cmake_minimum_required(VERSION 3.21)
 
 project(mvoice
     VERSION 1.0.0
@@ -69,12 +69,29 @@ find_package(CURL REQUIRED)
 include(FetchContent)
 FetchContent_Declare(json
     URL https://github.com/nlohmann/json/releases/download/v3.12.0/json.tar.xz
+    DOWNLOAD_EXTRACT_TIMESTAMP TRUE
 )
 FetchContent_MakeAvailable(json)
 
 # OpenDHT (optional)
 if(USE_DHT)
-    pkg_check_modules(OPENDHT REQUIRED IMPORTED_TARGET opendht)
+    FetchContent_Declare(opendht
+        GIT_REPOSITORY https://github.com/savoirfairelinux/opendht.git
+        GIT_TAG v3.7.3
+        GIT_SHALLOW TRUE
+    )
+    set(OPENDHT_TOOLS OFF CACHE INTERNAL "")
+    set(OPENDHT_PYTHON OFF CACHE INTERNAL "")
+    set(OPENDHT_C OFF CACHE INTERNAL "")
+    set(OPENDHT_PROXY_SERVER OFF CACHE INTERNAL "")
+    set(OPENDHT_PROXY_CLIENT OFF CACHE INTERNAL "")
+    set(OPENDHT_PEER_DISCOVERY OFF CACHE INTERNAL "")
+    set(OPENDHT_INDEX OFF CACHE INTERNAL "")
+    set(OPENDHT_HTTP OFF CACHE INTERNAL "")
+    set(OPENDHT_DOCUMENTATION OFF CACHE INTERNAL "")
+    set(BUILD_TESTING OFF CACHE INTERNAL "")
+    set(BUILD_SHARED_LIBS OFF CACHE INTERNAL "")
+    FetchContent_MakeAvailable(opendht)
 endif()
 
 # gettext for i18n
@@ -144,7 +161,7 @@ endif()
 
 # Optional: OpenDHT
 if(USE_DHT)
-    target_link_libraries(mvoice PRIVATE PkgConfig::OPENDHT)
+    target_link_libraries(mvoice PRIVATE opendht)
 else()
     target_compile_definitions(mvoice PRIVATE NO_DHT)
 endif()
