@@ -65,11 +65,12 @@ pkg_check_modules(ALSA REQUIRED IMPORTED_TARGET alsa)
 # libcurl
 find_package(CURL REQUIRED)
 
-# nlohmann_json — try CMake package first, then pkg-config, then header-only
-find_package(nlohmann_json QUIET)
-if(NOT nlohmann_json_FOUND)
-    pkg_check_modules(NLOHMANN_JSON QUIET nlohmann_json)
-endif()
+# nlohmann_json
+include(FetchContent)
+FetchContent_Declare(json
+    URL https://github.com/nlohmann/json/releases/download/v3.12.0/json.tar.xz
+)
+FetchContent_MakeAvailable(json)
 
 # OpenDHT (optional)
 if(USE_DHT)
@@ -134,13 +135,7 @@ else()
     target_link_libraries(mvoice PRIVATE fltk fltk_images)
 endif()
 
-# JSON 
-if(nlohmann_json_FOUND)
-    target_link_libraries(mvoice PRIVATE nlohmann_json::nlohmann_json)
-elseif(NLOHMANN_JSON_FOUND)
-    target_include_directories(mvoice PRIVATE ${NLOHMANN_JSON_INCLUDE_DIRS})
-endif()
-# If neither found, the system header path must already include nlohmann/json.hpp.
+target_link_libraries(mvoice PRIVATE nlohmann_json::nlohmann_json)
 
 # Optional 44100 Hz resampler
 if(USE_44100)
