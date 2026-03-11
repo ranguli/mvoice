@@ -33,6 +33,11 @@
 mvoice.mk
 makefile
 
+# CMake
+build/
+build-*/
+CMakeUserPresets.json
+
 # Executable
 mvoice
 
