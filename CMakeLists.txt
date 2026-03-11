@@ -21,18 +21,18 @@ set(INSTALL_PREFIX "${CMAKE_INSTALL_PREFIX}" CACHE PATH
     "Installation prefix (binary goes to <prefix>/bin, locale to <prefix>/share/locale)")
 
 add_library(codec2 STATIC
-    codec2/codec2.cpp
-    codec2/codebooks.cpp
-    codec2/kiss_fft.cpp
-    codec2/lpc.cpp
-    codec2/nlp.cpp
-    codec2/pack.cpp
-    codec2/qbase.cpp
-    codec2/quantise.cpp
+    third_party/codec2/codec2.cpp
+    third_party/codec2/codebooks.cpp
+    third_party/codec2/kiss_fft.cpp
+    third_party/codec2/lpc.cpp
+    third_party/codec2/nlp.cpp
+    third_party/codec2/pack.cpp
+    third_party/codec2/qbase.cpp
+    third_party/codec2/quantise.cpp
 )
 
 target_include_directories(codec2 PUBLIC
-    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/codec2>
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/third_party/codec2>
 )
 
 target_compile_options(codec2 PRIVATE -W)
