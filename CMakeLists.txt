@@ -1,3 +1,20 @@
+# Copyright (c) 2026 Joshua Murphy VO1RFX
+# This project is based on mvoice by N7TAE
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+
 cmake_minimum_required(VERSION 3.21)
 
 project(mvoice
@@ -44,20 +61,8 @@ include(FindPkgConfig)
 
 find_package(Threads REQUIRED)
 
-# FLTK — prefer fltk-config, fall back to CMake package
-find_program(FLTK_CONFIG_EXE fltk-config)
-if(FLTK_CONFIG_EXE)
-    execute_process(COMMAND ${FLTK_CONFIG_EXE} --cxxflags
-        OUTPUT_VARIABLE FLTK_CXXFLAGS OUTPUT_STRIP_TRAILING_WHITESPACE)
-    execute_process(COMMAND ${FLTK_CONFIG_EXE} --use-images --ldflags
-        OUTPUT_VARIABLE FLTK_LDFLAGS  OUTPUT_STRIP_TRAILING_WHITESPACE)
-
-    # Split into lists for CMake consumption
-    separate_arguments(FLTK_CXXFLAGS_LIST UNIX_COMMAND "${FLTK_CXXFLAGS}")
-    separate_arguments(FLTK_LDFLAGS_LIST  UNIX_COMMAND "${FLTK_LDFLAGS}")
-else()
-    find_package(FLTK REQUIRED)
-endif()
+# Qt6
+find_package(Qt6 REQUIRED COMPONENTS Widgets)
 
 # ALSA
 pkg_check_modules(ALSA REQUIRED IMPORTED_TARGET alsa)
@@ -79,6 +84,8 @@ if(USE_DHT)
         GIT_REPOSITORY https://github.com/savoirfairelinux/opendht.git
         GIT_TAG v3.7.3
         GIT_SHALLOW TRUE
+        PATCH_COMMAND ${CMAKE_COMMAND} -DSOURCE_DIR=<SOURCE_DIR>
+            -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/patch-opendht-gcc15.cmake # A funky patch is required because of some compiler shenanigans
     )
     set(OPENDHT_TOOLS OFF CACHE INTERNAL "")
     set(OPENDHT_PYTHON OFF CACHE INTERNAL "")
@@ -94,13 +101,9 @@ if(USE_DHT)
     FetchContent_MakeAvailable(opendht)
 endif()
 
-# gettext for i18n
-find_package(Intl)
-find_program(MSGFMT_EXE msgfmt)
-
 # Main executable
 set(MVOICE_SOURCES
-    AboutDlg.cpp
+    AppCore.cpp
     AudioManager.cpp
     Base.cpp
     Callsign.cpp
@@ -114,6 +117,7 @@ set(MVOICE_SOURCES
     Packet.cpp
     SettingsDlg.cpp
     SMSDlg.cpp
+    AboutDlg.cpp
     TransmitButton.cpp
     UDPSocket.cpp
     UnixDgramSocket.cpp
@@ -124,12 +128,14 @@ if(USE_44100)
 endif()
 
 add_executable(mvoice ${MVOICE_SOURCES})
+set_target_properties(mvoice PROPERTIES AUTOMOC ON)
 
 target_link_libraries(mvoice PRIVATE
     codec2
     Threads::Threads
     PkgConfig::ALSA
     CURL::libcurl
+    Qt6::Widgets
 )
 
 target_include_directories(mvoice PRIVATE
@@ -144,14 +150,6 @@ target_compile_definitions(mvoice PRIVATE
 
 target_compile_options(mvoice PRIVATE -W)
 
-# FLTK flags
-if(FLTK_CONFIG_EXE)
-    target_compile_options(mvoice PRIVATE ${FLTK_CXXFLAGS_LIST})
-    target_link_options(mvoice PRIVATE ${FLTK_LDFLAGS_LIST})
-else()
-    target_link_libraries(mvoice PRIVATE fltk fltk_images)
-endif()
-
 target_link_libraries(mvoice PRIVATE nlohmann_json::nlohmann_json)
 
 # Optional 44100 Hz resampler
@@ -161,12 +159,15 @@ endif()
 
 # Optional: OpenDHT
 if(USE_DHT)
+    target_include_directories(mvoice BEFORE PRIVATE ${opendht_SOURCE_DIR}/include)
     target_link_libraries(mvoice PRIVATE opendht)
 else()
     target_compile_definitions(mvoice PRIVATE NO_DHT)
 endif()
 
-# Internationalization (gettext .mo files)
+# Internationalization - Qt .ts/.qm files can be added later.
+# For now, keep gettext .mo generation for the Italian translation.
+find_program(MSGFMT_EXE msgfmt)
 set(MVOICE_LINGUAS it)
 
 if(MSGFMT_EXE)

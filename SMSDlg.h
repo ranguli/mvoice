@@ -16,39 +16,32 @@
  *   Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
 
- #pragma once
+#pragma once
 
- #include "FLTK-GUI.h"
- #include "TransmitButton.h"
+#include <QDialog>
 
- class CMainWindow;
+class QLineEdit;
+class QPushButton;
+class QTextEdit;
+class CAppCore;
 
- class CSMSDlg
- {
+class CSMSDlg : public QDialog
+{
+	Q_OBJECT
 public:
-	CSMSDlg();
-	~CSMSDlg();
-	bool Init(CMainWindow *);
-	void Show();
-	void Hide();
+	explicit CSMSDlg(CAppCore *core, QWidget *parent = nullptr);
 	void UpdateSMS(bool cansend);
 
-private:
-	CMainWindow *pMainWindow;
-	Fl_Double_Window *pDlg;
-	Fl_Input *pDSTCallsignInput;
-	Fl_Button *pClearButton, *pSendButton;
-	Fl_Text_Editor *pMessage;
-	Fl_Text_Buffer *pMsgBuffer;
-	
-	bool bDestCS;
-
+private slots:
 	void DestinationCSInput();
 	void SendButton();
 	void ClearButton();
 
-	static void WindowCallbackCB(Fl_Widget *p, void *v);
-	static void DestinationCSInputCB(Fl_Widget *p, void *v);
-	static void SendButtonCB(Fl_Widget *p, void *v);
-	static void ClearButtonCB(Fl_Widget *p, void *v);
- };
+private:
+	CAppCore *pCore;
+	QLineEdit *pDSTCallsignInput;
+	QPushButton *pSendButton;
+	QPushButton *pClearButton;
+	QTextEdit *pMessage;
+	bool bDestCS;
+};

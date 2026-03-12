@@ -1,5 +1,5 @@
 /*
- *   Copyright (c) 2019-2022 by Thomas A. Early N7TAE
+ *   Copyright (c) 2019-2025 by Thomas A. Early N7TAE
  *
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of the GNU General Public License as published by
@@ -18,20 +18,20 @@
 
 #pragma once
 
-#include "FLTK-GUI.h"
+#include <QPushButton>
+#include <QTimer>
 #include "Timer.h"
 
-class CTransmitButton : public Fl_Toggle_Button
+class CTransmitButton : public QPushButton
 {
+	Q_OBJECT
 public:
-	CTransmitButton(int X, int Y, int W, int H, const char *L = 0);
-	~CTransmitButton() {}
+	CTransmitButton(const QString &label, QWidget *parent = nullptr);
 
 	void toggle();
 	void UpdateLabel();
 
 private:
-	const char *defaultlabel;
+	QString defaultLabel;
 	CTimer timer;
-	char tlabel[16];
 };

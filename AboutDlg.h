@@ -16,23 +16,15 @@
  *   Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
 
- #pragma once
+#pragma once
 
- #include "FLTK-GUI.h"
+#include <QDialog>
 
- class CAboutDlg
- {
+class QLabel;
+
+class CAboutDlg : public QDialog
+{
+	Q_OBJECT
 public:
-	CAboutDlg();
-	~CAboutDlg();
-	bool Init(Fl_RGB_Image *);
-	void Show();
-
-protected:
-	char version[64];
-	Fl_Double_Window *pDlg;
-	Fl_RGB_Image *pIcon;
-	Fl_Box *pIconBox, *pVersionBox, *pCopyrightBox;
-	static void WindowCallbackCB(Fl_Widget *, void *);
-	void WindowCallback();
- };
+	explicit CAboutDlg(QWidget *parent = nullptr);
+};

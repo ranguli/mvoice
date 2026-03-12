@@ -1,5 +1,5 @@
 /*
- *   Copyright (c) 2019-2022 by Thomas A. Early N7TAE
+ *   Copyright (c) 2019-2025 by Thomas A. Early N7TAE
  *
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of the GNU General Public License as published by
@@ -18,13 +18,15 @@
 
 #include "TransmitButton.h"
 
-CTransmitButton::CTransmitButton(int X, int Y, int W, int H, const char *L) : Fl_Toggle_Button(X, Y, W, H, L), defaultlabel(L)
+CTransmitButton::CTransmitButton(const QString &label, QWidget *parent)
+	: QPushButton(label, parent), defaultLabel(label)
 {
+	setCheckable(true);
 }
 
 void CTransmitButton::toggle()
 {
-	if (Fl_Button::value())
+	if (isChecked())
 	{
 		timer.start();
 	}
@@ -33,16 +35,15 @@ void CTransmitButton::toggle()
 
 void CTransmitButton::UpdateLabel()
 {
-	if (Fl_Button::value())
+	if (isChecked())
 	{
 		auto t = int(timer.time());
 		auto s = t % 60;
 		auto m = t / 60;
-		snprintf(tlabel, 16, "%d:%02d", m, s);
-		Fl_Toggle_Button::label(tlabel);
+		setText(QString("%1:%2").arg(m).arg(s, 2, 10, QChar('0')));
 	}
 	else
 	{
-		Fl_Toggle_Button::label(defaultlabel);
+		setText(defaultLabel);
 	}
 }

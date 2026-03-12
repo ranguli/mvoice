@@ -16,50 +16,35 @@
  *   Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
 
-#include <locale>
-#include <string>
-
+#include <QLabel>
+#include <QVBoxLayout>
+#include <QImage>
+#include <QPixmap>
 #include "AboutDlg.h"
-
-#define _(STRING) gettext(STRING)
+#include "IconData.h"
 
 #define VERSION "1.4.1"
 
-CAboutDlg::CAboutDlg() {}
-
-CAboutDlg::~CAboutDlg() {}
-
-bool CAboutDlg::Init(Fl_RGB_Image *pIcon)
+CAboutDlg::CAboutDlg(QWidget *parent)
+	: QDialog(parent)
 {
-	pDlg = new Fl_Double_Window(400, 200, _("About MVoice"));
+	setWindowTitle(tr("About MVoice"));
+	setFixedSize(400, 200);
 
-	pIconBox = new Fl_Box(176, 30, 48, 48);
-	pIconBox->image(pIcon);
+	auto *layout = new QVBoxLayout(this);
+	layout->setAlignment(Qt::AlignCenter);
 
-	snprintf(version, sizeof(version), _("MVoice version # %s"), VERSION);
+	QImage img(icon_image.pixel_data, icon_image.width, icon_image.height, QImage::Format_RGBA8888);
+	auto *iconLabel = new QLabel;
+	iconLabel->setPixmap(QPixmap::fromImage(img));
+	iconLabel->setAlignment(Qt::AlignCenter);
+	layout->addWidget(iconLabel);
 
-	pVersionBox = new Fl_Box(0, 100, 400, 30, version);
+	auto *versionLabel = new QLabel(tr("MVoice version # %1").arg(VERSION));
+	versionLabel->setAlignment(Qt::AlignCenter);
+	layout->addWidget(versionLabel);
 
-	pCopyrightBox = new Fl_Box(0, 150, 400, 30, _("Copyright (c) 2025 by Thomas A. Early N7TAE"));
-
-	pDlg->end();
-	pDlg->callback(&CAboutDlg::WindowCallbackCB, this);
-	pDlg->set_modal();
-
-	return false;
-}
-
-void CAboutDlg::Show()
-{
-	pDlg->show();
-}
-
-void CAboutDlg::WindowCallbackCB(Fl_Widget *, void *ptr)
-{
-	((CAboutDlg *)ptr)->WindowCallback();
-}
-
-void CAboutDlg::WindowCallback()
-{
-	pDlg->hide();
+	auto *copyrightLabel = new QLabel(tr("Copyright (c) 2025 by Thomas A. Early N7TAE"));
+	copyrightLabel->setAlignment(Qt::AlignCenter);
+	layout->addWidget(copyrightLabel);
 }

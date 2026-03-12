@@ -29,9 +29,13 @@
 *.a
 *.lib
 
-# CMake
+# CMake (in-source build artifacts; out-of-source builds go in build/)
 build/
 build-*/
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+Makefile
 CMakeUserPresets.json
 
 # Executable

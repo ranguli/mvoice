@@ -1,5 +1,5 @@
 /*
- *   Copyright (c) 2019-2020 by Thomas A. Early N7TAE
+ *   Copyright (c) 2019-2025 by Thomas A. Early N7TAE
  *
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of the GNU General Public License as published by
@@ -18,77 +18,60 @@
 
 #pragma once
 
+#include <QDialog>
 #include <map>
 #include <regex>
-#ifndef NO_DHT
-#include <opendht.h>
-#endif
 
-#include "FLTK-GUI.h"
 #include "Configure.h"
 
+class QTabWidget;
+class QLineEdit;
+class QComboBox;
+class QRadioButton;
+class QPushButton;
+class QLabel;
 class CMainWindow;
 
-class CSettingsDlg
+class CSettingsDlg : public QDialog
 {
+	Q_OBJECT
 public:
-    CSettingsDlg();
-    ~CSettingsDlg();
-    bool Init(CMainWindow *pMain);
-    void Show();
+	explicit CSettingsDlg(CMainWindow *pMain, QWidget *parent = nullptr);
+	void Refresh();
 
-private:
-	std::map<std::string, std::pair<std::string, std::string>> AudioInMap, AudioOutMap;
-	// persistance
-	void SaveWidgetStates(CFGDATA &d);
-	void SetWidgetStates(const CFGDATA &d);
-	// regex
-	std::regex LatRegEx, LongRegEx;
-	// data classes
-	CFGDATA data;
-	// other data
-	bool bM17Source, bLatitude, bLongitude;
-	// Windows
-	CMainWindow *pMainWindow;
-    Fl_Double_Window *pDlg;
-	// widgets
-	Fl_Tabs *pTabs;
-	Fl_Return_Button *pOkayButton;
-	Fl_Button *pAudioRescanButton;
-	Fl_Choice *pAudioInputChoice, *pAudioOutputChoice, *pModuleChoice;
-	Fl_Input *pSourceCallsignInput, *pTextMessageInput;
-	Fl_Float_Input *pLatitudeInput, *pLongitudeInput;
-#ifndef NO_DHT
-	Fl_Input *pBootstrapInput;
-#endif
-	Fl_Group *pStationGroup, *pAudioGroup, *pInternetGroup, *pCodecGroup;
-#ifndef NO_DHT
-	Fl_Group *pDHTGroup;
-#endif
-	Fl_Radio_Round_Button *pVoiceOnlyRadioButton, *pVoiceDataRadioButton;
-	Fl_Radio_Round_Button *pIPv4RadioButton, *pIPv6RadioButton, *pDualStackRadioButton;
-	Fl_Box *pAudioInputDescBox, *pAudioOutputDescBox;
-	// helpers
-	void SetOkayButton();
-	// Callback wrapper
-	static void SourceCallsignInputCB(Fl_Widget *p, void *v);
-	static void AudioRescanButtonCB(Fl_Widget *p, void *v);
-	static void AudioInputChoiceCB(Fl_Widget *p, void *v);
-	static void AudioOutputChoiceCB(Fl_Widget *p, void *v);
-	static void ModuleChoiceCB(Fl_Widget *p, void *v);
-	static void UpdateButtonCB(Fl_Widget *p, void *v);
-	static void LatitudeInputCB(Fl_Widget *p, void *v);
-	static void LongitudeInputCB(Fl_Widget *p, void *v);
-	static void TextMessageInputCB(Fl_Widget *p, void *v);
-
-	// the actual callbacks
+private slots:
 	void SourceCallsignInput();
 	void AudioRescanButton();
-	void AudioInputChoice();
-	void AudioOutputChoice();
-	void ModuleChoice();
+	void AudioInputChoice(int index);
+	void AudioOutputChoice(int index);
+	void ModuleChoice(int index);
 	void UpdateButton();
 	void LatitudeInput();
 	void LongitudeInput();
 	void TextMessageInput();
+
+private:
+	std::map<std::string, std::pair<std::string, std::string>> AudioInMap, AudioOutMap;
+	void SaveWidgetStates(CFGDATA &d);
+	void SetWidgetStates(const CFGDATA &d);
+	void SetOkayButton();
+
+	std::regex LatRegEx, LongRegEx;
+	CFGDATA data;
+	bool bM17Source, bLatitude, bLongitude;
+
+	CMainWindow *pMainWindow;
+
+	QTabWidget *pTabs;
+	QPushButton *pOkayButton;
+	QPushButton *pAudioRescanButton;
+	QComboBox *pAudioInputChoice, *pAudioOutputChoice, *pModuleChoice;
+	QLineEdit *pSourceCallsignInput, *pTextMessageInput;
+	QLineEdit *pLatitudeInput, *pLongitudeInput;
+#ifndef NO_DHT
+	QLineEdit *pBootstrapInput;
+#endif
+	QLabel *pAudioInputDescBox, *pAudioOutputDescBox;
+	QRadioButton *pVoiceOnlyRadioButton, *pVoiceDataRadioButton;
+	QRadioButton *pIPv4RadioButton, *pIPv6RadioButton, *pDualStackRadioButton;
 };

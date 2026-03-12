@@ -18,102 +18,40 @@
 
 #pragma once
 
-#include <regex>
-#include <future>
-#include <atomic>
-#include <mutex>
-#ifndef NO_DHT
-#include <opendht.h>
-#endif
+#include <QMainWindow>
 
-#include "FLTK-GUI.h"
-#include "Configure.h"
-#include "M17Gateway.h"
-#include "M17RouteMap.h"
-#include "SMSDlg.h"
-#include "SettingsDlg.h"
-#include "AboutDlg.h"
-#include "AudioManager.h"
-#include "TransmitButton.h"
+#include "AppCore.h"
 
-class CMainWindow
+class QLineEdit;
+class QCheckBox;
+class QRadioButton;
+class QGroupBox;
+class QPushButton;
+class QMenuBar;
+class QMenu;
+class QTextEdit;
+class QTimer;
+class QIntValidator;
+
+class CTransmitButton;
+class CSMSDlg;
+class CSettingsDlg;
+class CAboutDlg;
+
+class CMainWindow : public QMainWindow
 {
+	Q_OBJECT
 public:
-	CMainWindow();
+	CMainWindow(QWidget *parent = nullptr);
 	~CMainWindow();
 
-	CConfigure cfg;
-	CAudioManager AudioManager;
+	CAppCore core;
 
 	bool Init();
-	void Run(int argc, char *argv[]);
-	void Receive(bool is_rx);
 	void NewSettings(CFGDATA *newdata);
+
+private slots:
 	void UpdateGUI();
-	bool SendMessage(const std::string &dst, const std::string &message);
-
-	// helpers
-	bool ToUpper(std::string &s);
-
-	// regular expression for testing stuff
-	std::regex IPv4RegEx, IPv6RegEx, M17CallRegEx, ReflTarRegEx, ReflDstRegEx;
-
-private:
-	// classes
-	CSMSDlg SMSDlg;
-	CSettingsDlg SettingsDlg;
-	CAboutDlg AboutDlg;
-	CM17Gateway gateM17;
-
-#ifndef NO_DHT
-	// Distributed Hash Table
-	dht::DhtRunner node;
-	dht::Value nodevalue;
-	const std::string exportNodeFilename;
-#endif
-
-	// widgets
-	Fl_Double_Window *pWin;
-	CTransmitButton *pPTTButton, *pEchoTestButton;
-	Fl_Button *pQuickKeyButton, *pActionButton, *pConnectButton, *pDisconnectButton, *pDashboardButton;
-	Fl_Check_Button *pIsLegacyCheck;
-	Fl_Input *pTargetCSInput, *pTargetIpInput;
-	Fl_Input *pDSTCallsignInput;
-	Fl_Int_Input *pTargetPortInput;
-	Fl_Group *pModuleGroup;
-	Fl_Radio_Round_Button *pModuleRadioButton[26];
-	Fl_Menu_Bar *pMenuBar;
-	Fl_Text_Display *pTextDisplay;
-	Fl_Text_Buffer  *pTextBuffer;
-	Fl_RGB_Image *pIcon;
-
-	// state data
-	CFGDATA cfgdata;
-	std::mutex logmux;
-
-	// helpers
-	void BuildTargetMenuButton();
-	void FixTargetMenuButton();
-	void SetTargetMenuButton(const char *label = "");
-	void TransmitterButtonControl();
-	std::future<void> futM17;
-	std::future<void> futReadThread;
-	void SetState();
-	void RunM17();
-	void StopM17();
-	void ReadThread();
-	CUnixDgramReader M172AM, LogInput;
-	void CloseAll();
-	void insertLogText(const char *line);
-	void AudioSummary(const char *title);
-	char GetTargetModule();
-	void SetTargetAddress(std::string &cs);
-#ifndef NO_DHT
-	void Get(const std::string &cs);
-#endif
-	void ActivateModules(const std::string &modules = "ABCDEFGHIJKLMNOPQRSTUVWXYZ");
-
-	// Actual Callbacks
 	void Quit();
 	void ShowSMSDialog();
 	void ShowSettingsDialog();
@@ -123,31 +61,42 @@ private:
 	void QuickKeyButton();
 	void TargetCSInput();
 	void TargetIPInput();
-	void DestinationCSInput();
 	void TargetPortInput();
-	void TargetMenuButton();
+	void DestinationCSInput();
 	void ActionButton();
 	void LinkButton();
 	void UnlinkButton();
 	void DashboardButton();
-	// Static wrapper for callbacks
-	static void QuitCB(Fl_Widget *p, void *v);
-	static void ShowSMSDialogCB(Fl_Widget *p, void *v);
-	static void ShowSettingsDialogCB(Fl_Widget *p, void *v);
-	static void ShowAboutDialogCB(Fl_Widget *p, void *v);
-	static void EchoButtonCB(Fl_Widget *p, void *v);
-	static void PTTButtonCB(Fl_Widget *p, void *v);
-	static void QuickKeyButttonCB(Fl_Widget *, void *);
-	static void TargetCSInputCB(Fl_Widget *p, void *v);
-	static void TargetIPInputCB(Fl_Widget *p, void *v);
-	static void TargetPortInputCB(Fl_Widget *p, void *v);
-	static void TargetMenuButtonCB(Fl_Widget *p, void *v);
-	static void DestinationCSInputCB(Fl_Widget *p, void *v);
-	static void ActionButtonCB(Fl_Widget *p, void *v);
-	static void LinkButtonCB(Fl_Widget *p, void *v);
-	static void UnlinkButtonCB(Fl_Widget *p, void *v);
-	static void DashboardButtonCB(Fl_Widget *p, void *v);
 
-	bool bDestCS, bTargetCS, bTargetIP, bTargetPort, bTransOK;
-	std::atomic<bool> keep_running;
+private:
+	CSMSDlg *pSMSDlg;
+	CSettingsDlg *pSettingsDlg;
+
+	CTransmitButton *pPTTButton, *pEchoTestButton;
+	QPushButton *pQuickKeyButton, *pActionButton, *pConnectButton, *pDisconnectButton, *pDashboardButton;
+	QCheckBox *pIsLegacyCheck;
+	QLineEdit *pTargetCSInput, *pTargetIpInput;
+	QLineEdit *pDSTCallsignInput;
+	QLineEdit *pTargetPortInput;
+	QIntValidator *pPortValidator;
+	QGroupBox *pModuleGroup;
+	QRadioButton *pModuleRadioButton[26];
+	QMenu *pTargetMenu;
+	QTextEdit *pTextDisplay;
+	QTimer *pUpdateTimer;
+
+	bool bDestCS, bTargetCS, bTargetIP, bTargetPort;
+
+	void BuildTargetMenuButton();
+	void FixTargetMenuButton();
+	void SetTargetMenuButton(const QString &label = QString());
+	void TransmitterButtonControl();
+	char GetTargetModule();
+	void SetTargetAddress(std::string &cs);
+	void ActivateModules(const std::string &modules = "ABCDEFGHIJKLMNOPQRSTUVWXYZ");
+	void insertLogText(const char *line);
+	void AudioSummary(const char *title);
+	void DrainLogQueue();
+
+	void closeEvent(QCloseEvent *event) override;
 };

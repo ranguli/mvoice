@@ -16,138 +16,96 @@
  *   Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
 
-#include <locale>
-#include <string>
+#include <QLineEdit>
+#include <QPushButton>
+#include <QTextEdit>
+#include <QVBoxLayout>
+#include <QHBoxLayout>
+#include <QLabel>
+#include <regex>
 
-#include "MainWindow.h"
 #include "SMSDlg.h"
+#include "AppCore.h"
 #include "Utilities.h"
 
-#define _(STRING) gettext(STRING)
-
-CSMSDlg::CSMSDlg() : pMainWindow(nullptr), pDlg(nullptr) {}
-
-CSMSDlg::~CSMSDlg()
+CSMSDlg::CSMSDlg(CAppCore *core, QWidget *parent)
+	: QDialog(parent), pCore(core), bDestCS(false)
 {
-	if (pDlg)
-		delete pDlg;
-}
+	setWindowTitle(tr("SMS Texting"));
+	resize(600, 240);
 
-bool CSMSDlg::Init(CMainWindow *pMain)
-{
-	pMainWindow = pMain;
-	pDlg = new Fl_Double_Window(600, 240, _("SMS Texting"));
+	auto *mainLayout = new QVBoxLayout(this);
 
-	pDSTCallsignInput = new Fl_Input(170, 10, 130, 30, _("Destination Callsign:"));
-	pDSTCallsignInput->tooltip(_("Packet Mode destination callsign"));
-	pDSTCallsignInput->color(FL_RED);
-	pDSTCallsignInput->labelsize(16);
-	pDSTCallsignInput->textsize(16);
-	pDSTCallsignInput->when(FL_WHEN_CHANGED);
-	pDSTCallsignInput->callback(&CSMSDlg::DestinationCSInputCB, this);
-	pDSTCallsignInput->value("@ALL");
+	auto *topRow = new QHBoxLayout;
+	topRow->addWidget(new QLabel(tr("Destination Callsign:")));
+	pDSTCallsignInput = new QLineEdit("@ALL");
+	pDSTCallsignInput->setToolTip(tr("Packet Mode destination callsign"));
+	pDSTCallsignInput->setMaxLength(10);
+	topRow->addWidget(pDSTCallsignInput);
 
-	pSendButton = new Fl_Button(320, 10, 130, 30, _("Send"));
-	pSendButton->tooltip(_("Send this message"));
-	pSendButton->labelsize(18);
-	pSendButton->deactivate();
-	pSendButton->callback(&CSMSDlg::SendButtonCB, this);
+	pSendButton = new QPushButton(tr("Send"));
+	pSendButton->setToolTip(tr("Send this message"));
+	pSendButton->setEnabled(false);
+	topRow->addWidget(pSendButton);
 
-	pClearButton = new Fl_Button(460, 10, 130, 32, _("Clear"));
-	pClearButton->tooltip(_("Clear the outgoing message"));
-	pClearButton->labelsize(18);
-	pClearButton->deactivate();
-	pClearButton->callback(&CSMSDlg::ClearButtonCB, this);
+	pClearButton = new QPushButton(tr("Clear"));
+	pClearButton->setToolTip(tr("Clear the outgoing message"));
+	pClearButton->setEnabled(false);
+	topRow->addWidget(pClearButton);
 
-	pMsgBuffer = new Fl_Text_Buffer();
-	pMessage = new Fl_Text_Editor(10, 70, 580, 160, _("Outgoing Message"));
-	pMessage->tooltip(_("Message to send"));
-	pMessage->labelsize(16);
-	pMessage->textsize(16);
-	pMessage->buffer(pMsgBuffer);
+	mainLayout->addLayout(topRow);
 
-	pDlg->end();
-	pDlg->callback(&CSMSDlg::WindowCallbackCB, this);
-	return false;
-}
+	pMessage = new QTextEdit;
+	pMessage->setToolTip(tr("Message to send"));
+	mainLayout->addWidget(pMessage);
 
-void CSMSDlg::Show()
-{
-	pDlg->show();
-}
-
-void CSMSDlg::WindowCallbackCB(Fl_Widget *, void *dlg)
-{
-	((CSMSDlg *)dlg)->Hide();
-}
-
-void CSMSDlg::Hide()
-{
-	pDlg->hide();
-}
-
-void CSMSDlg::DestinationCSInputCB(Fl_Widget *, void *dlg)
-{
-	((CSMSDlg *)dlg)->DestinationCSInput();
+	connect(pDSTCallsignInput, &QLineEdit::textChanged, this, &CSMSDlg::DestinationCSInput);
+	connect(pSendButton, &QPushButton::clicked, this, &CSMSDlg::SendButton);
+	connect(pClearButton, &QPushButton::clicked, this, &CSMSDlg::ClearButton);
 }
 
 void CSMSDlg::DestinationCSInput()
 {
-	// Convert to uppercase
-	auto pos = pDSTCallsignInput->position();
-	std::string dest(pDSTCallsignInput->value());
-	if (pMainWindow->ToUpper(dest))
+	auto pos = pDSTCallsignInput->cursorPosition();
+	std::string dest = pDSTCallsignInput->text().toStdString();
+	if (pCore->ToUpper(dest))
 	{
-		pDSTCallsignInput->value(dest.c_str());
-		pDSTCallsignInput->position(pos);
+		pDSTCallsignInput->setText(QString::fromStdString(dest));
+		pDSTCallsignInput->setCursorPosition(pos);
 	}
 
-	// the destination either has to be @ALL or a legal callsign
-	bDestCS = 0==dest.compare("@ALL") or 0==dest.compare("#PARROT") or std::regex_match(dest, pMainWindow->M17CallRegEx);
-	pDSTCallsignInput->color(bDestCS ? 2 : 1);
-	pDSTCallsignInput->damage(FL_DAMAGE_ALL);
-}
+	bDestCS = dest == "@ALL" || dest == "#PARROT" || std::regex_match(dest, pCore->M17CallRegEx);
 
-void CSMSDlg::SendButtonCB(Fl_Widget *, void *dlg)
-{
-	((CSMSDlg *)dlg)->SendButton();
+	QPalette pal = pDSTCallsignInput->palette();
+	pal.setColor(QPalette::Base, bDestCS ? QColor(Qt::green) : QColor(Qt::red));
+	pDSTCallsignInput->setPalette(pal);
 }
 
 void CSMSDlg::SendButton()
 {
-	auto txt = pMsgBuffer->text();
-	const std::string dst(pDSTCallsignInput->value());
-	std::string msg(txt);
+	const std::string dst = pDSTCallsignInput->text().toStdString();
+	std::string msg = pMessage->toPlainText().toStdString();
 	trim(msg);
-	free(txt);
-	if (pMainWindow->SendMessage(dst, msg))
+	if (pCore->SendMessage(dst, msg))
 		ClearButton();
-}
-
-void CSMSDlg::ClearButtonCB(Fl_Widget *, void *dlg)
-{
-	((CSMSDlg *)dlg)->ClearButton();
 }
 
 void CSMSDlg::ClearButton()
 {
-	pMsgBuffer->text("");
+	pMessage->clear();
 }
 
 void CSMSDlg::UpdateSMS(bool cansend)
 {
 	DestinationCSInput();
-	if (pMsgBuffer->length() > 0)
+	if (!pMessage->toPlainText().isEmpty())
 	{
-		pClearButton->activate();
-		if (bDestCS and cansend)
-			pSendButton->activate();
-		else
-			pSendButton->deactivate();
+		pClearButton->setEnabled(true);
+		pSendButton->setEnabled(bDestCS && cansend);
 	}
 	else
 	{
-		pClearButton->deactivate();
-		pSendButton->deactivate();
+		pClearButton->setEnabled(false);
+		pSendButton->setEnabled(false);
 	}
 }

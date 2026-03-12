@@ -17,508 +17,416 @@
  */
 
 #include <iostream>
-#include <fstream>
 #include <sstream>
+#include <iomanip>
 #include <alsa/asoundlib.h>
 
-#include "AudioManager.h"
+#include <QTabWidget>
+#include <QLineEdit>
+#include <QComboBox>
+#include <QRadioButton>
+#include <QPushButton>
+#include <QLabel>
+#include <QVBoxLayout>
+#include <QHBoxLayout>
+#include <QFormLayout>
+#include <QGroupBox>
+#include <QButtonGroup>
+#include <QMessageBox>
+
 #include "SettingsDlg.h"
 #include "MainWindow.h"
 
-#define _(STRING) gettext(STRING)
-
-static const char *notfoundstr = _(" not found");
-
-CSettingsDlg::CSettingsDlg() : pMainWindow(nullptr), pDlg(nullptr)
+CSettingsDlg::CSettingsDlg(CMainWindow *pMain, QWidget *parent)
+	: QDialog(parent), bM17Source(false), bLatitude(false), bLongitude(false), pMainWindow(pMain)
 {
 	LatRegEx = std::regex("^[+-]?(90|([1-8]?[0-9](\\.[0-9]*)?))$", std::regex::extended);
 	LongRegEx = std::regex("^[+-]?(180|(((1[0-7])|[1-9]?)[0-9](\\.[0-9]*)?))$", std::regex::extended);
+
+	setWindowTitle(tr("Settings"));
+	setModal(true);
+	resize(450, 350);
+
+	auto *mainLayout = new QVBoxLayout(this);
+
+	pTabs = new QTabWidget;
+	mainLayout->addWidget(pTabs);
+
+	// ---- Station Tab ----
+	auto *stationWidget = new QWidget;
+	auto *stationLayout = new QVBoxLayout(stationWidget);
+
+	auto *callRow = new QHBoxLayout;
+	callRow->addWidget(new QLabel(tr("My Callsign:")));
+	pSourceCallsignInput = new QLineEdit;
+	pSourceCallsignInput->setToolTip(tr("Input your callsign, up to 8 characters"));
+	pSourceCallsignInput->setMaxLength(8);
+	callRow->addWidget(pSourceCallsignInput);
+
+	callRow->addWidget(new QLabel(tr("Module:")));
+	pModuleChoice = new QComboBox;
+	pModuleChoice->setToolTip(tr("Assign the transceiver module"));
+	for (char c = 'A'; c <= 'Z'; c++)
+		pModuleChoice->addItem(QString(QChar(c)));
+	callRow->addWidget(pModuleChoice);
+	stationLayout->addLayout(callRow);
+
+	auto *codecGroup = new QGroupBox(tr("Codec"));
+	auto *codecLayout = new QHBoxLayout(codecGroup);
+	pVoiceOnlyRadioButton = new QRadioButton(tr("Voice-only"));
+	pVoiceOnlyRadioButton->setToolTip(tr("This is the higher quality, 3200 bits/s codec"));
+	pVoiceDataRadioButton = new QRadioButton(tr("Voice+Data"));
+	pVoiceDataRadioButton->setToolTip(tr("This is the 1600 bits/s codec"));
+	codecLayout->addWidget(pVoiceOnlyRadioButton);
+	codecLayout->addWidget(pVoiceDataRadioButton);
+	stationLayout->addWidget(codecGroup);
+
+	auto *coordRow = new QHBoxLayout;
+	coordRow->addWidget(new QLabel(tr("Latitude:")));
+	pLatitudeInput = new QLineEdit("0.0");
+	pLatitudeInput->setToolTip(tr("North is +, South is -"));
+	coordRow->addWidget(pLatitudeInput);
+	coordRow->addWidget(new QLabel(tr("Longitude:")));
+	pLongitudeInput = new QLineEdit("0.0");
+	pLongitudeInput->setToolTip(tr("East is +, West is -"));
+	coordRow->addWidget(pLongitudeInput);
+	stationLayout->addLayout(coordRow);
+
+	auto *msgRow = new QHBoxLayout;
+	msgRow->addWidget(new QLabel(tr("Message:")));
+	pTextMessageInput = new QLineEdit;
+	pTextMessageInput->setToolTip(tr("Up to a 52 character text message"));
+	pTextMessageInput->setMaxLength(52);
+	msgRow->addWidget(pTextMessageInput);
+	stationLayout->addLayout(msgRow);
+
+	stationLayout->addStretch();
+	pTabs->addTab(stationWidget, tr("Station"));
+
+	// ---- Network Tab ----
+	auto *netWidget = new QWidget;
+	auto *netLayout = new QVBoxLayout(netWidget);
+	netLayout->addSpacing(20);
+	pIPv4RadioButton = new QRadioButton(tr("IPv4 Only"));
+	pIPv6RadioButton = new QRadioButton(tr("IPv6 Only"));
+	pDualStackRadioButton = new QRadioButton(tr("IPv4 && IPv6"));
+	netLayout->addWidget(pIPv4RadioButton);
+	netLayout->addWidget(pIPv6RadioButton);
+	netLayout->addWidget(pDualStackRadioButton);
+	netLayout->addStretch();
+	pTabs->addTab(netWidget, tr("Network"));
+
+	// ---- DHT Tab ----
+#ifndef NO_DHT
+	auto *dhtWidget = new QWidget;
+	auto *dhtLayout = new QFormLayout(dhtWidget);
+	pBootstrapInput = new QLineEdit;
+	pBootstrapInput->setToolTip(tr("An existing node on the DHT Network"));
+	dhtLayout->addRow(tr("DHT Bootstrap:"), pBootstrapInput);
+	pTabs->addTab(dhtWidget, tr("DHT"));
+#endif
+
+	// ---- Audio Tab ----
+	auto *audioWidget = new QWidget;
+	auto *audioLayout = new QVBoxLayout(audioWidget);
+
+	auto *inRow = new QHBoxLayout;
+	inRow->addWidget(new QLabel(tr("Input:")));
+	pAudioInputChoice = new QComboBox;
+	pAudioInputChoice->setToolTip(tr("Select your audio input device, usually \"default\""));
+	inRow->addWidget(pAudioInputChoice);
+	audioLayout->addLayout(inRow);
+
+	pAudioInputDescBox = new QLabel(tr("input description"));
+	pAudioInputDescBox->setAlignment(Qt::AlignCenter);
+	audioLayout->addWidget(pAudioInputDescBox);
+
+	auto *outRow = new QHBoxLayout;
+	outRow->addWidget(new QLabel(tr("Output:")));
+	pAudioOutputChoice = new QComboBox;
+	pAudioOutputChoice->setToolTip(tr("Select the audio output device, usually \"default\""));
+	outRow->addWidget(pAudioOutputChoice);
+	audioLayout->addLayout(outRow);
+
+	pAudioOutputDescBox = new QLabel(tr("output description"));
+	pAudioOutputDescBox->setAlignment(Qt::AlignCenter);
+	audioLayout->addWidget(pAudioOutputDescBox);
+
+	pAudioRescanButton = new QPushButton(tr("Rescan"));
+	pAudioRescanButton->setToolTip(tr("Rescan for new audio devices"));
+	audioLayout->addWidget(pAudioRescanButton, 0, Qt::AlignCenter);
+
+	audioLayout->addStretch();
+	pTabs->addTab(audioWidget, tr("Audio"));
+
+	// ---- Update button ----
+	pOkayButton = new QPushButton(tr("Update"));
+	pOkayButton->setDefault(true);
+	mainLayout->addWidget(pOkayButton, 0, Qt::AlignRight);
+
+	// Connections
+	connect(pSourceCallsignInput, &QLineEdit::textChanged, this, &CSettingsDlg::SourceCallsignInput);
+	connect(pLatitudeInput, &QLineEdit::textChanged, this, &CSettingsDlg::LatitudeInput);
+	connect(pLongitudeInput, &QLineEdit::textChanged, this, &CSettingsDlg::LongitudeInput);
+	connect(pTextMessageInput, &QLineEdit::textChanged, this, &CSettingsDlg::TextMessageInput);
+	connect(pModuleChoice, QOverload<int>::of(&QComboBox::currentIndexChanged), this, &CSettingsDlg::ModuleChoice);
+	connect(pAudioInputChoice, QOverload<int>::of(&QComboBox::currentIndexChanged), this, &CSettingsDlg::AudioInputChoice);
+	connect(pAudioOutputChoice, QOverload<int>::of(&QComboBox::currentIndexChanged), this, &CSettingsDlg::AudioOutputChoice);
+	connect(pAudioRescanButton, &QPushButton::clicked, this, &CSettingsDlg::AudioRescanButton);
+	connect(pOkayButton, &QPushButton::clicked, this, &CSettingsDlg::UpdateButton);
 }
 
-CSettingsDlg::~CSettingsDlg()
+void CSettingsDlg::Refresh()
 {
-	if (pDlg)
-		delete pDlg;
-}
-
-void CSettingsDlg::Show()
-{
-	CConfigure cfg;
-	pMainWindow->cfg.CopyTo(data);	// get the saved config data (MainWindow has alread read it)
+	pMainWindow->core.GetConfig().CopyTo(data);
 	SetWidgetStates(data);
-	pDlg->show();
-	pTabs->value(pStationGroup);
-	AudioRescanButton();	// re-read the audio PCM devices
-}
-
-void CSettingsDlg::UpdateButtonCB(Fl_Widget *, void *This)
-{
-	((CSettingsDlg *)This)->UpdateButton();
+	pTabs->setCurrentIndex(0);
+	AudioRescanButton();
 }
 
 void CSettingsDlg::UpdateButton()
 {
-	pDlg->hide();
+	hide();
 	CFGDATA newstate;						// the user clicked okay, time to look at what's changed
 	SaveWidgetStates(newstate);				// newstate is now the current contents of the Settings Dialog
 #ifndef NO_DHT
-	if (newstate.sBootstrap.compare(pMainWindow->cfg.GetData()->sBootstrap))
+	if (newstate.sBootstrap.compare(pMainWindow->core.GetConfig().GetData()->sBootstrap))
 	{
-		fl_message("Please restart to use new bootstrap");
+		QMessageBox::information(this, tr("DHT"), tr("Please restart to use new bootstrap"));
 	}
 #endif
-	pMainWindow->cfg.CopyFrom(newstate);	// and it is now in the global cfg object
-	pMainWindow->cfg.WriteData();			// and it's saved in the config dir
-
-	// reconfigure current environment if anything changed
-	pMainWindow->cfg.CopyTo(data);
+	pMainWindow->core.GetConfig().CopyFrom(newstate);
+	pMainWindow->core.GetConfig().WriteData();
+	pMainWindow->core.GetConfig().CopyTo(data);
 	pMainWindow->NewSettings(&newstate);
 }
 
 void CSettingsDlg::SaveWidgetStates(CFGDATA &d)
 {
-	// M17
-	d.sM17SourceCallsign.assign(pSourceCallsignInput->value());
-	d.bVoiceOnlyEnable = 1u == pVoiceOnlyRadioButton->value();
-	// station
+	d.sM17SourceCallsign = pSourceCallsignInput->text().toStdString();
+	d.bVoiceOnlyEnable = pVoiceOnlyRadioButton->isChecked();
 	d.cModule = data.cModule;
-	d.dLatitude = std::atof(pLatitudeInput->value());
-	d.dLongitude = std::atof(pLongitudeInput->value());
-	d.sMessage.assign(pTextMessageInput->value());
-	// Internet
-	if (pIPv4RadioButton->value())
+	d.dLatitude = pLatitudeInput->text().toDouble();
+	d.dLongitude = pLongitudeInput->text().toDouble();
+	d.sMessage = pTextMessageInput->text().toStdString();
+
+	if (pIPv4RadioButton->isChecked())
 		d.eNetType = EInternetType::ipv4only;
-	else if (pIPv6RadioButton->value())
+	else if (pIPv6RadioButton->isChecked())
 		d.eNetType = EInternetType::ipv6only;
 	else
 		d.eNetType = EInternetType::dualstack;
-	// audio
-	const std::string in(pAudioInputChoice->text());
-	auto itin = AudioInMap.find(in);
-	if (AudioInMap.end() != itin)
-	{
-		d.sAudioIn.assign(itin->second.first);
-	}
-	const std::string out(pAudioOutputChoice->text());
-	auto itout = AudioOutMap.find(out);
-	if (AudioOutMap.end() != itout)
-	{
-		d.sAudioOut.assign(itout->second.first);
-	}
+
+	auto inText = pAudioInputChoice->currentText().toStdString();
+	auto itin = AudioInMap.find(inText);
+	if (itin != AudioInMap.end())
+		d.sAudioIn = itin->second.first;
+
+	auto outText = pAudioOutputChoice->currentText().toStdString();
+	auto itout = AudioOutMap.find(outText);
+	if (itout != AudioOutMap.end())
+		d.sAudioOut = itout->second.first;
+
 #ifndef NO_DHT
-	d.sBootstrap.assign(pBootstrapInput->value());
+	d.sBootstrap = pBootstrapInput->text().toStdString();
 #endif
 }
 
 void CSettingsDlg::SetWidgetStates(const CFGDATA &d)
 {
-	// M17
 	if (d.bVoiceOnlyEnable)
-		pVoiceOnlyRadioButton->setonly();
+		pVoiceOnlyRadioButton->setChecked(true);
 	else
-		pVoiceDataRadioButton->setonly();
-	pSourceCallsignInput->value(d.sM17SourceCallsign.c_str());
+		pVoiceDataRadioButton->setChecked(true);
+
+	pSourceCallsignInput->setText(QString::fromStdString(d.sM17SourceCallsign));
 	SourceCallsignInput();
 	LatitudeInput();
 	LongitudeInput();
 	TextMessageInput();
-	pModuleChoice->value(d.cModule - 'A');
+	pModuleChoice->setCurrentIndex(d.cModule - 'A');
+
 	std::stringstream ss;
 	ss << std::fixed << std::setprecision(5) << d.dLatitude;
-	pLatitudeInput->value(ss.str().c_str());
+	pLatitudeInput->setText(QString::fromStdString(ss.str()));
 	ss.str("");
 	ss << std::fixed << std::setprecision(5) << d.dLongitude;
-	pLongitudeInput->value(ss.str().c_str());
-	pTextMessageInput->value(d.sMessage.c_str());
+	pLongitudeInput->setText(QString::fromStdString(ss.str()));
+
+	pTextMessageInput->setText(QString::fromStdString(d.sMessage));
+
 #ifndef NO_DHT
-	pBootstrapInput->value(d.sBootstrap.c_str());
+	pBootstrapInput->setText(QString::fromStdString(d.sBootstrap));
 #endif
-	// internet
+
 	switch (d.eNetType) {
-		case EInternetType::ipv6only:
-			pIPv6RadioButton->setonly();
-			break;
-		case EInternetType::dualstack:
-			pDualStackRadioButton->setonly();
-			break;
-		default:
-			pIPv4RadioButton->setonly();
-			break;
+		case EInternetType::ipv6only:  pIPv6RadioButton->setChecked(true); break;
+		case EInternetType::dualstack: pDualStackRadioButton->setChecked(true); break;
+		default:                       pIPv4RadioButton->setChecked(true); break;
 	}
 }
 
-bool CSettingsDlg::Init(CMainWindow *pMain)
+void CSettingsDlg::ModuleChoice(int index)
 {
-	pMainWindow = pMain;
-	pDlg = new Fl_Double_Window(450, 350, _("Settings"));
-
-	pTabs = new Fl_Tabs(10, 10, 430, 240);
-	pTabs->labelsize(16);
-
-	//////////////////////////////////////////////////////////////////////////
-	pStationGroup = new Fl_Group(20, 30, 410, 210, _("Station"));
-	pStationGroup->labelsize(16);
-
-	pSourceCallsignInput = new Fl_Input(150, 45, 100, 30, _("My Callsign:"));
-	pSourceCallsignInput->tooltip(_("Input your callsign, up to 8 characters"));
-	pSourceCallsignInput->color(FL_RED);
-	pSourceCallsignInput->labelsize(16);
-	pSourceCallsignInput->textsize(16);
-	pSourceCallsignInput->when(FL_WHEN_CHANGED);
-	pSourceCallsignInput->callback(&CSettingsDlg::SourceCallsignInputCB, this);
-
-	pModuleChoice = new Fl_Choice(340, 45, 50, 30, _("Module:"));
-	pModuleChoice->down_box(FL_BORDER_BOX);
-	pModuleChoice->tooltip(_("Assign the transceiver module"));
-	pModuleChoice->labelsize(16);
-	pModuleChoice->textsize(16);
-	pModuleChoice->callback(&CSettingsDlg::ModuleChoiceCB, this);
-	for (char c='A'; c<='Z'; c++)
-	{
-		const std::string l(1, c);
-		pModuleChoice->add(l.c_str());
-	}
-
-	pCodecGroup = new Fl_Group(100, 90, 265, 40, _("Codec:"));
-	pCodecGroup->box(FL_THIN_DOWN_BOX);
-	pCodecGroup->align(FL_ALIGN_LEFT);
-	pCodecGroup->labelsize(16);
-
-	pVoiceOnlyRadioButton = new Fl_Radio_Round_Button(120, 95, 150, 30, _("Voice-only"));
-	pVoiceOnlyRadioButton->tooltip(_("This is the higher quality, 3200 bits/s codec"));
-	pVoiceOnlyRadioButton->labelsize(16);
-
-	pVoiceDataRadioButton = new Fl_Radio_Round_Button(230, 95, 150, 30, _("Voice+Data"));
-	pVoiceDataRadioButton->tooltip(_("This is the 1600 bits/s codec"));
-	pVoiceDataRadioButton->labelsize(16);
-	pCodecGroup->end();
-
-	pLatitudeInput = new Fl_Float_Input(100, 150, 100, 30, _("Latitude:"));
-	pLatitudeInput->tooltip(_("North is +, South is -"));
-	pLatitudeInput->labelsize(16);
-	pLatitudeInput->textsize(16);
-	pLatitudeInput->value("0.0");
-	pLatitudeInput->when(FL_WHEN_CHANGED);
-	pLatitudeInput->callback(&CSettingsDlg::LatitudeInputCB, this);
-
-	pLongitudeInput = new Fl_Float_Input(300, 150, 120, 30, _("Longitude:"));
-	pLongitudeInput->tooltip(_("East is +, West is -"));
-	pLongitudeInput->labelsize(16);
-	pLongitudeInput->textsize(16);
-	pLongitudeInput->value("0.0");
-	pLongitudeInput->when(FL_WHEN_CHANGED);
-	pLongitudeInput->callback(&CSettingsDlg::LongitudeInputCB, this);
-
-	pTextMessageInput = new Fl_Input(100, 200, 320, 30, _("Message:"));
-	pTextMessageInput->tooltip(_("Up to a 52 character text message"));
-	pTextMessageInput->labelsize(16);
-	pTextMessageInput->textsize(16);
-	pTextMessageInput->color(FL_GREEN);
-	pTextMessageInput->when(FL_WHEN_CHANGED);
-	pTextMessageInput->callback(&CSettingsDlg::TextMessageInputCB, this);
-
-	pStationGroup->end();
-	pTabs->add(pStationGroup);
-
-	//////////////////////////////////////////////////////////////////////////
-	pInternetGroup = new Fl_Group(20, 30, 410, 210, _("Network"));
-	pInternetGroup->labelsize(16);
-
-	pIPv4RadioButton = new Fl_Radio_Round_Button(145, 60, 200, 30, _("IPv4 Only"));
-	pIPv4RadioButton->labelsize(16);
-
-	pIPv6RadioButton = new Fl_Radio_Round_Button(145, 110, 200, 30, _("IPv6 Only"));
-	pIPv6RadioButton->labelsize(16);
-
-	pDualStackRadioButton = new Fl_Radio_Round_Button(145, 160, 200, 30, _("IPv4 && IPv6"));
-	pDualStackRadioButton->labelsize(16);
-
-	pInternetGroup->end();
-	pTabs->add(pInternetGroup);
-
-	///////////////////////////////////////////////////////////////////////////
-#ifndef NO_DHT
-	pDHTGroup = new Fl_Group(20, 30, 410, 210, _("DHT"));
-
-	pBootstrapInput = new Fl_Input(170, 120, 227, 30, _("DHT Bootstrap:"));
-	pBootstrapInput->tooltip(_("An existing node on the DHT Network"));
-
-	pDHTGroup->end();
-	pTabs->add(pDHTGroup);
-#endif
-
-	//////////////////////////////////////////////////////////////////////////
-	pAudioGroup = new Fl_Group(20, 30, 410, 210, _("Audio"));
-	pAudioGroup->tooltip(_("Select the audio Input and Output devices"));
-	pAudioGroup->labelsize(16);
-
-	pAudioInputChoice = new Fl_Choice(135, 50, 260, 24, _("Input:"));
-	pAudioInputChoice->tooltip(_("Select your audio input device, usually \"default\""));
-	pAudioInputChoice->down_box(FL_BORDER_BOX);
-	pAudioInputChoice->labelsize(16);
-	pAudioInputChoice->textsize(16);
-	pAudioInputChoice->callback(&CSettingsDlg::AudioInputChoiceCB, this);
-
-	pAudioInputDescBox = new Fl_Box(30, 80, 390, 25, "input description");
-	pAudioInputDescBox->labelsize(12);
-
-	pAudioOutputChoice = new Fl_Choice(135, 120, 260, 24, _("Output:"));
-	pAudioOutputChoice->tooltip(_("Select the audio output device, usually \"default\""));
-	pAudioOutputChoice->down_box(FL_BORDER_BOX);
-	pAudioOutputChoice->labelsize(16);
-	pAudioOutputChoice->textsize(16);
-	pAudioOutputChoice->callback(&CSettingsDlg::AudioOutputChoiceCB, this);
-
-	pAudioOutputDescBox = new Fl_Box(30, 150, 390, 25, "output description");
-	pAudioOutputDescBox->labelsize(12);
-
-	pAudioRescanButton = new Fl_Button(192, 186, 90, 40, _("Rescan"));
-	pAudioRescanButton->tooltip(_("Rescan for new audio devices"));
-	pAudioRescanButton->labelsize(16);
-
-	pAudioGroup->end();
-	pTabs->add(pAudioGroup);
-
-	pTabs->end();
-
-	pOkayButton = new Fl_Return_Button(310, 280, 120, 44, _("Update"));
-	pOkayButton->labelsize(16);
-	pOkayButton->callback(&CSettingsDlg::UpdateButtonCB, this);
-
-	pDlg->end();
-	pDlg->set_modal();
-
-	return false;
-}
-
-void CSettingsDlg::ModuleChoiceCB(Fl_Widget *, void *This)
-{
-	((CSettingsDlg *)This)->ModuleChoice();
-}
-
-void CSettingsDlg::ModuleChoice()
-{
-	const std::string selected(pModuleChoice->text());
-	data.cModule = selected.at(0);
-}
-
-void CSettingsDlg::SourceCallsignInputCB(Fl_Widget *, void *This)
-{
-	((CSettingsDlg *)This)->SourceCallsignInput();
+	data.cModule = 'A' + index;
 }
 
 void CSettingsDlg::SourceCallsignInput()
 {
-	auto pos = pSourceCallsignInput->position();
-	std::string s(pSourceCallsignInput->value());
-	if (pMainWindow->ToUpper(s))
+	auto pos = pSourceCallsignInput->cursorPosition();
+	std::string s = pSourceCallsignInput->text().toStdString();
+	if (pMainWindow->core.ToUpper(s))
 	{
-		pSourceCallsignInput->value(s.c_str());
-		pSourceCallsignInput->position(pos);
+		pSourceCallsignInput->setText(QString::fromStdString(s));
+		pSourceCallsignInput->setCursorPosition(pos);
 	}
-	bM17Source = std::regex_match(s.c_str(), pMainWindow->M17CallRegEx);
-	if (bM17Source)
-	{
-		pSourceCallsignInput->color(FL_GREEN);
-	}
-	else
-	{
-		pSourceCallsignInput->color(FL_RED);
-	}
-	pSourceCallsignInput->damage(FL_DAMAGE_ALL);
+	bM17Source = std::regex_match(s, pMainWindow->core.M17CallRegEx);
+
+	QPalette pal = pSourceCallsignInput->palette();
+	pal.setColor(QPalette::Base, bM17Source ? QColor(Qt::green) : QColor(Qt::red));
+	pSourceCallsignInput->setPalette(pal);
 	SetOkayButton();
 }
 
 void CSettingsDlg::SetOkayButton()
 {
-	if (bM17Source and bLatitude and bLongitude)
-		pOkayButton->activate();
-	else
-		pOkayButton->deactivate();
+	pOkayButton->setEnabled(bM17Source && bLatitude && bLongitude);
 }
 
-void CSettingsDlg::AudioInputChoiceCB(Fl_Widget *, void *This)
+void CSettingsDlg::AudioInputChoice(int)
 {
-	((CSettingsDlg *)This)->AudioInputChoice();
-}
-
-void CSettingsDlg::AudioInputChoice()
-{
-	const std::string selected(pAudioInputChoice->text());
+	auto selected = pAudioInputChoice->currentText().toStdString();
 	auto it = AudioInMap.find(selected);
-	if (AudioInMap.end() == it)
+	if (it == AudioInMap.end())
 	{
-		data.sAudioIn.assign("ERROR");
-		pAudioInputDescBox->label(std::string(selected+notfoundstr).c_str());
-
+		data.sAudioIn = "ERROR";
+		pAudioInputDescBox->setText(QString::fromStdString(selected + tr(" not found").toStdString()));
 	}
 	else
 	{
-		data.sAudioIn.assign(it->second.first);
-		pAudioInputDescBox->label(it->second.second.c_str());
+		data.sAudioIn = it->second.first;
+		pAudioInputDescBox->setText(QString::fromStdString(it->second.second));
 	}
-}
-
-void CSettingsDlg::LatitudeInputCB(Fl_Widget *, void *This)
-{
-	((CSettingsDlg *)This)->LatitudeInput();
 }
 
 void CSettingsDlg::LatitudeInput()
 {
-	std::string str(pLatitudeInput->value());
+	std::string str = pLatitudeInput->text().toStdString();
 	bLatitude = std::regex_match(str, LatRegEx);
-	pLatitudeInput->color(bLatitude ? FL_GREEN : FL_RED);
-	pLatitudeInput->damage(FL_DAMAGE_ALL);
-	SetOkayButton();
-}
 
-void CSettingsDlg::LongitudeInputCB(Fl_Widget *, void *This)
-{
-	((CSettingsDlg *)This)->LongitudeInput();
+	QPalette pal = pLatitudeInput->palette();
+	pal.setColor(QPalette::Base, bLatitude ? QColor(Qt::green) : QColor(Qt::red));
+	pLatitudeInput->setPalette(pal);
+	SetOkayButton();
 }
 
 void CSettingsDlg::LongitudeInput()
 {
-	std::string str(pLongitudeInput->value());
+	std::string str = pLongitudeInput->text().toStdString();
 	bLongitude = std::regex_match(str, LongRegEx);
-	pLongitudeInput->color(bLongitude ? FL_GREEN : FL_RED);
-	pLongitudeInput->damage(FL_DAMAGE_ALL);
+
+	QPalette pal = pLongitudeInput->palette();
+	pal.setColor(QPalette::Base, bLongitude ? QColor(Qt::green) : QColor(Qt::red));
+	pLongitudeInput->setPalette(pal);
 	SetOkayButton();
 }
 
-void CSettingsDlg::AudioOutputChoiceCB(Fl_Widget *, void *This)
+void CSettingsDlg::AudioOutputChoice(int)
 {
-	((CSettingsDlg *)This)->AudioOutputChoice();
-}
-
-void CSettingsDlg::TextMessageInputCB(Fl_Widget *, void *This)
-{
-	((CSettingsDlg *)This)->TextMessageInput();
+	auto selected = pAudioOutputChoice->currentText().toStdString();
+	auto it = AudioOutMap.find(selected);
+	if (it == AudioOutMap.end())
+	{
+		data.sAudioOut = "ERROR";
+		pAudioOutputDescBox->setText(QString::fromStdString(selected + tr(" not found").toStdString()));
+	}
+	else
+	{
+		data.sAudioOut = it->second.first;
+		pAudioOutputDescBox->setText(QString::fromStdString(it->second.second));
+	}
 }
 
 void CSettingsDlg::TextMessageInput()
 {
-	std::string msg(pTextMessageInput->value());
-	if (msg.size())
-	{
-		auto pos = pTextMessageInput->position();
-		if (msg.size() > 52)
-		{
-			msg.resize(52);
-			pTextMessageInput->value(msg.c_str());
-			pTextMessageInput->position((pos > 52) ? 52 : pos);
-		}
-	}
-}
-
-void CSettingsDlg::AudioOutputChoice()
-{
-	const std::string selected(pAudioOutputChoice->text());
-	auto it = AudioOutMap.find(selected);
-	if (AudioOutMap.end() == it)
-	{
-		data.sAudioOut.assign(_("ERROR"));
-		pAudioOutputDescBox->label(std::string(selected+notfoundstr).c_str());
-
-	}
-	else
-	{
-		data.sAudioOut.assign(it->second.first);
-		pAudioOutputDescBox->label(it->second.second.c_str());
-	}
-}
-
-void CSettingsDlg::AudioRescanButtonCB(Fl_Widget *, void *This)
-{
-	((CSettingsDlg *)This)->AudioRescanButton();
+	// Max length enforced by QLineEdit::setMaxLength
 }
 
 void CSettingsDlg::AudioRescanButton()
 {
-	auto inchoice = pAudioInputChoice->value();
-	if (inchoice < 0)
-		inchoice = 0;
-	auto outchoice = pAudioOutputChoice->value();
-	if (outchoice < 0)
-		outchoice = 0;
+	auto inchoice = pAudioInputChoice->currentIndex();
+	if (inchoice < 0) inchoice = 0;
+	auto outchoice = pAudioOutputChoice->currentIndex();
+	if (outchoice < 0) outchoice = 0;
+
 	void **hints;
 	if (snd_device_name_hint(-1, "pcm", &hints) < 0)
 		return;
-	void **n = hints;
+
 	pAudioInputChoice->clear();
 	pAudioOutputChoice->clear();
 	AudioInMap.clear();
 	AudioOutMap.clear();
-	while (*n != NULL) {
-		char *name = snd_device_name_get_hint(*n, "NAME");
-		if (NULL == name) {
-			n++;
-			continue;
-		}
-		char *desc = snd_device_name_get_hint(*n, "DESC");
-		if (NULL == desc) {
-			free(name);
-			n++;
-			continue;
-		}
-		if ((0==strcmp(name, "default") || strstr(name, "plughw")) && NULL==strstr(desc, "without any conversions")) {
 
+	for (void **n = hints; *n != nullptr; n++)
+	{
+		char *name = snd_device_name_get_hint(*n, "NAME");
+		if (!name) continue;
+		char *desc = snd_device_name_get_hint(*n, "DESC");
+		if (!desc) { free(name); continue; }
+
+		if ((strcmp(name, "default") == 0 || strstr(name, "plughw")) && !strstr(desc, "without any conversions"))
+		{
 			char *io = snd_device_name_get_hint(*n, "IOID");
 			bool is_input = true, is_output = true;
-
-			if (io) {	// io == NULL means it's for both input and output
-				if (0 == strcasecmp(io, "Input")) {
-					is_output = false;
-				} else if (0 == strcasecmp(io, "Output")) {
-					is_input = false;
-				} else {
-					std::cerr << _("ERROR: unexpected IOID=") << io << std::endl;
-				}
+			if (io)
+			{
+				if (strcasecmp(io, "Input") == 0) is_output = false;
+				else if (strcasecmp(io, "Output") == 0) is_input = false;
 				free(io);
 			}
 
 			std::string short_name(name);
 			auto pos = short_name.find("plughw:CARD=");
-			if (short_name.npos != pos) {
+			if (pos != std::string::npos)
+			{
 				short_name = short_name.replace(pos, 12, "");
-				pos = short_name.find(",DEV=0");
-				if (short_name.npos != pos)
-					short_name = short_name.replace(pos, 6, "");
-				if (0 == short_name.size())
+				auto dpos = short_name.find(",DEV=0");
+				if (dpos != std::string::npos)
+					short_name = short_name.replace(dpos, 6, "");
+				if (short_name.empty())
 					short_name.assign(name);
 			}
-			if (is_input) {
+
+			if (is_input)
+			{
 				snd_pcm_t *handle;
-				if (snd_pcm_open(&handle, name, SND_PCM_STREAM_CAPTURE, 0) == 0) {
-					AudioInMap[short_name] = std::pair<std::string, std::string>(name, desc);
+				if (snd_pcm_open(&handle, name, SND_PCM_STREAM_CAPTURE, 0) == 0)
+				{
+					AudioInMap[short_name] = {name, desc};
 					snd_pcm_close(handle);
-					pAudioInputChoice->add(short_name.c_str());
+					pAudioInputChoice->addItem(QString::fromStdString(short_name));
 				}
 			}
-
-			if (is_output) {
+			if (is_output)
+			{
 				snd_pcm_t *handle;
-				if (snd_pcm_open(&handle, name, SND_PCM_STREAM_PLAYBACK, 0) == 0) {
-					AudioOutMap[short_name] = std::pair<std::string, std::string>(name, desc);
+				if (snd_pcm_open(&handle, name, SND_PCM_STREAM_PLAYBACK, 0) == 0)
+				{
+					AudioOutMap[short_name] = {name, desc};
 					snd_pcm_close(handle);
-					pAudioOutputChoice->add(short_name.c_str());
+					pAudioOutputChoice->addItem(QString::fromStdString(short_name));
 				}
 			}
-
 		}
 
-	    if (name) {
-	      	free(name);
-		}
-		if (desc) {
-			free(desc);
-		}
-		n++;
+		free(name);
+		free(desc);
 	}
 	snd_device_name_free_hint(hints);
-	pAudioInputChoice->value(inchoice);
-	AudioInputChoice();
-	pAudioOutputChoice->value(outchoice);
-	AudioOutputChoice();
+
+	pAudioInputChoice->setCurrentIndex(inchoice);
+	AudioInputChoice(inchoice);
+	pAudioOutputChoice->setCurrentIndex(outchoice);
+	AudioOutputChoice(outchoice);
 }
