@@ -24,9 +24,7 @@
 #include <fstream>
 #include <thread>
 
-#include "MainWindow.h"
 #include "AudioManager.h"
-#include "Configure.h"
 #include "FrameType.h"
 #include "Callsign.h"
 #include "codec2.h"
@@ -53,17 +51,17 @@ CAudioManager::CAudioManager() : hot_mic(false), play_file(false), m17_sid_in(0U
 #endif
 }
 
-bool CAudioManager::Init(CMainWindow *pMain)
+bool CAudioManager::Init(std::function<const CFGDATA*()> configProvider, std::function<void(bool)> receiveCallback)
 {
-	pMainWindow = pMain;
+	getConfig = std::move(configProvider);
+	onReceive = std::move(receiveCallback);
 	AM2M17.SetUp("am2m17");
-	LogInput.SetUp("log_input");
 	return false;
 }
 
 void CAudioManager::BuildMetaBlocks()
 {
-	auto pcfg = pMainWindow->cfg.GetData();
+	auto pcfg = getConfig();
 	if (pcfg->dLatitude or pcfg->dLongitude) {
 		gnss.SetDataStationTypes(EGnssSourceType::Client, EGnssStationType::Fixed);
 		gnss.Set(pcfg->dLatitude, pcfg->dLongitude);
@@ -83,7 +81,7 @@ void CAudioManager::RecordMicThread(E_PTT_Type for_who, const std::string &urcal
 	if (count > 0)
 		std::cout << "Tailgating detected! Waited " << count*20 << " ms for audio queue to clear." << std::endl;
 
-	auto data = pMainWindow->cfg.GetData();
+	auto data = getConfig();
 	hot_mic = true;
 
 	mic2audio_fut = std::async(std::launch::async, &CAudioManager::mic2audio, this);
@@ -275,8 +273,8 @@ void CAudioManager::codec2gateway(const std::string &dst, const std::string &src
 
 void CAudioManager::mic2audio()
 {
-	auto data = pMainWindow->cfg.GetData();
 	// Open PCM device for recording (capture).
+	auto data = getConfig();
 	snd_pcm_t *handle;
 	int rc = snd_pcm_open(&handle, data->sAudioIn.c_str(), SND_PCM_STREAM_CAPTURE, 0);
 	if (rc < 0) {
@@ -391,7 +389,7 @@ void CAudioManager::codec2audio(const bool is_3200)
 
 void CAudioManager::PlayEchoDataThread()
 {
-	auto data = pMainWindow->cfg.GetData();
+	auto data = getConfig();
 	hot_mic = false;
 	mic2audio_fut.get();
 	audio2codec_fut.get();
@@ -412,8 +410,8 @@ void CAudioManager::M17_2AudioMgr(const CPacket &pack)
 			// here comes a new stream
 			m17_sid_in = pack.GetStreamId();
 			is_3200 = ((pack.GetFrameType() & 0x6u) == 0x4u);
-			pMainWindow->Receive(true);
 			// launch the audio processing threads
+			onReceive(true);
 			codec2audio_fut = std::async(std::launch::async, &CAudioManager::codec2audio, this, is_3200);
 			play_audio_fut = std::async(std::launch::async, &CAudioManager::play_audio, this);
 		}
@@ -429,17 +427,18 @@ void CAudioManager::M17_2AudioMgr(const CPacket &pack)
 			c2_queue.Push(frame2);
 		}
 		if (last) {
-			codec2audio_fut.get();	// we're done, get the finished threads and reset the current stream id
+			// we're done, get the finished threads and reset the current stream id
+			codec2audio_fut.get();
 			play_audio_fut.get();
 			m17_sid_in = 0U;
-			pMainWindow->Receive(false);
+			onReceive(false);
 		}
 	}
 }
 
 void CAudioManager::play_audio()
 {
-	auto data = pMainWindow->cfg.GetData();
+	auto data = getConfig();
 	std::this_thread::sleep_for(std::chrono::milliseconds(300));
 	// Open PCM device for playback.
 	snd_pcm_t *handle;

@@ -29,7 +29,7 @@
 
 CM17Gateway::CM17Gateway() : CBase()
 {
-	keep_running = false; // not running initially. this will be set to true in CMainWindow
+	keep_running = false; // set to true in CAppCore::Init()
 }
 
 CM17Gateway::~CM17Gateway()

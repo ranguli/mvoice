@@ -1,5 +1,8 @@
 /*
- *   Copyright (c) 2022 by Thomas A. Early N7TAE
+ *   Copyright (c) 2019-2022 by Thomas A. Early N7TAE
+ *   Copyright (c) 2026 Joshua Murphy VO1RFX
+ *
+ *   Based on the mvoice project by Thomas A. Early N7TAE
  *
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of the GNU General Public License as published by
@@ -16,25 +19,18 @@
  *   Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
 
+/*
+ *   QML image provider for the MVoice application icon.
+ */
+
 #pragma once
 
-#include <FL/Fl.H>
-#include <FL/Fl_Double_Window.H>
-#include <FL/Fl_Text_Display.H>
-#include <FL/Fl_Menu_Bar.H>
-#include <FL/Fl_Input.H>
-#include <FL/Fl_Float_Input.H>
-#include <FL/Fl_Int_Input.H>
-#include <FL/Fl_Box.H>
-#include <FL/Fl_Group.H>
-#include <FL/Fl_Radio_Button.H>
-#include <FL/Fl_Radio_Round_Button.H>
-#include <FL/Fl_Menu_Button.H>
-#include <FL/Fl_Choice.H>
-#include <FL/Fl_Button.H>
-#include <FL/Fl_Toggle_Button.H>
-#include <FL/Fl_Check_Button.H>
-#include <FL/Fl_Return_Button.H>
-#include <FL/Fl_Tabs.H>
-#include <FL/fl_ask.H>
-#include <FL/Fl_Text_Editor.H>
+#include <QQuickImageProvider>
+
+class AppIconProvider : public QQuickImageProvider
+{
+public:
+    AppIconProvider();
+
+    QImage requestImage(const QString &id, QSize *size, const QSize &requestedSize) override;
+};

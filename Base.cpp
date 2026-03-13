@@ -21,16 +21,17 @@
 #include <iostream>
 #include <iomanip>
 #include <cstdarg>
+#include <cstring>
 
 #include "Base.h"
 
-CBase::CBase()
-{
-	LogInput.SetUp("log_input");
-}
+CTQueue<std::string>* CBase::s_logQueue = nullptr;
 
 void CBase::SendLog(const char *fmt, ...)
 {
+	if (!s_logQueue)
+		return;
+
 	time_t ltime;
 	struct tm tm;
 	char buf[256];
@@ -38,15 +39,14 @@ void CBase::SendLog(const char *fmt, ...)
 	time(&ltime);
 	localtime_r(&ltime, &tm);
 
-	std::snprintf(buf ,255,"%d:%02d:%02d ", tm.tm_hour, tm.tm_min, tm.tm_sec);
+	std::snprintf(buf ,255, "%d:%02d:%02d ", tm.tm_hour, tm.tm_min, tm.tm_sec);
 
 	va_list args;
 	va_start(args,fmt);
 	vsnprintf(buf + strlen(buf), 256 - strlen(buf) -1, fmt, args);
 	va_end(args);
 
-	LogInput.Write(buf, strlen(buf)+1);
-	return;
+	s_logQueue->Push(std::string(buf));
 }
 
 void CBase::Dump(const char *title, const void *pointer, int length) const

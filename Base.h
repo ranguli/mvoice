@@ -17,13 +17,16 @@
  *   Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
 
-#include "UnixDgramSocket.h"
+#include <string>
+#include "TemplateClasses.h"
 
 class CBase
 {
 public:
-	CBase();
+	CBase() {}
 	virtual ~CBase() {}
+
+	static void SetLogQueue(CTQueue<std::string> *q) { s_logQueue = q; }
 
 protected:
 	void SendLog(const char *fmt, ...);
@@ -31,5 +34,5 @@ protected:
 	const char *Now() const;
 
 private:
-	CUnixDgramWriter LogInput;
+	static CTQueue<std::string> *s_logQueue;
 };

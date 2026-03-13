@@ -1,4 +1,7 @@
-# M17 Digital Voice, now using FLTK
+# M17 Digital Voice (VO1RFX experimental fork)
+
+> [!NOTE]
+> This fork is a derivative work of the _excellent_ `mvoice` program by Thomas A. Early (N7TAE). It is an experimental fork that ports mvoice to the Qt framework and QML to create a cross-platform frontend for `mvoice`, while keeping the underlying M17 functionality implemented by N7TAE unchanged and up-to-date from the upstream `mvoice` repository.
 
 *M17 Digital Voice* , mvoice, is a fully functional, M17 gateway and module for both voice and packet mode. For voice, it uses David Rowes Codec 2 and operates as a complete M17 repeater, only there is no RF component. It can Link to M17 reflectors and it can also do *routing*! It works best with a USB-based headset with microphone. mvoice uses the default pulseaudio/ALSA input and output device, so for most versions of linux, all you need to do is plug your headset in and you should be ready to go. mvoice does SMS texting using M17 Packet mode. At this time, mvoice only supports SMS texting.
 
@@ -25,24 +28,6 @@ There are several library requirements before you start:
 
 ```bash
 sudo apt install -y git build-essential libasound2-dev nlohmann-json3-dev libcurl4-gnutls-dev gettext
-```
-
-## FLTK
-
-*mvoice* now uses FLTK, the *Fast Light Tool Kit*. You may be able to install it with the package manager:
-
-```bash
-sudo apt install -y libfltk1.3-dev
-```
-
-You can also build it yourself from the FLTK git repository:
-
-```bash
-git clone https://github.com/fltk/fltk.git
-cd fltk
-git checkout branch-1.3
-make
-sudo make install
 ```
 
 ## Distributed Hash Table (OpenDHT)

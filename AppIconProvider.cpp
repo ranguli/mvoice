@@ -1,5 +1,8 @@
 /*
  *   Copyright (c) 2019-2022 by Thomas A. Early N7TAE
+ *   Copyright (c) 2026 Joshua Murphy VO1RFX
+ *
+ *   Based on the mvoice project by Thomas A. Early N7TAE
  *
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of the GNU General Public License as published by
@@ -16,33 +19,29 @@
  *   Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
 
-#include "TransmitButton.h"
+/*
+ *   QML image provider for the MVoice application icon.
+ */
 
-CTransmitButton::CTransmitButton(int X, int Y, int W, int H, const char *L) : Fl_Toggle_Button(X, Y, W, H, L), defaultlabel(L)
+#include "AppIconProvider.h"
+
+#include <QImage>
+
+#include "IconData.h"
+
+AppIconProvider::AppIconProvider()
+    : QQuickImageProvider(QQuickImageProvider::Image)
 {
 }
 
-void CTransmitButton::toggle()
+QImage AppIconProvider::requestImage(const QString &, QSize *size, const QSize &requestedSize)
 {
-	if (Fl_Button::value())
-	{
-		timer.start();
-	}
-	UpdateLabel();
-}
+    QImage img(icon_image.pixel_data, icon_image.width, icon_image.height, QImage::Format_RGBA8888);
+    if (size)
+        *size = img.size();
 
-void CTransmitButton::UpdateLabel()
-{
-	if (Fl_Button::value())
-	{
-		auto t = int(timer.time());
-		auto s = t % 60;
-		auto m = t / 60;
-		snprintf(tlabel, 16, "%d:%02d", m, s);
-		Fl_Toggle_Button::label(tlabel);
-	}
-	else
-	{
-		Fl_Toggle_Button::label(defaultlabel);
-	}
+    if (requestedSize.isValid())
+        return img.scaled(requestedSize.width(), requestedSize.height(), Qt::KeepAspectRatio, Qt::SmoothTransformation);
+
+    return img;
 }

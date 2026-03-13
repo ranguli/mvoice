@@ -52,6 +52,16 @@ public:
 		return item;
 	}
 
+	bool TryPop(T &item)
+	{
+		std::lock_guard<std::mutex> lock(m);
+		if (q.empty())
+			return false;
+		item = std::move(q.front());
+		q.pop();
+		return true;
+	}
+
 	bool IsEmpty() const
 	{
 		std::unique_lock<std::mutex> lock(m);

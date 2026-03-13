@@ -23,9 +23,11 @@
 #include <atomic>
 #include <mutex>
 #include <vector>
+#include <functional>
 
 #include "TemplateClasses.h"
 #include "UnixDgramSocket.h"
+#include "Configure.h"
 #include "Message.h"
 #include "Packet.h"
 #include "Random.h"
@@ -46,13 +48,11 @@ using SVolStats = struct volstats_tag
 
 enum class E_PTT_Type { echo, m17 };
 
-class CMainWindow;
-
 class CAudioManager : public CBase
 {
 public:
 	CAudioManager();
-	bool Init(CMainWindow *);
+	bool Init(std::function<const CFGDATA*()> configProvider, std::function<void(bool)> receiveCallback);
 	void BuildMetaBlocks();
 	void RecordMicThread(E_PTT_Type for_who, const std::string &urcall);
 	void PlayEchoDataThread();	// for Echo
@@ -81,9 +81,11 @@ private:
 #endif
 
 	// Unix sockets
-	CUnixDgramWriter AM2M17, LogInput;
+	CUnixDgramWriter AM2M17;
+	// callbacks
+	std::function<const CFGDATA*()> getConfig;
+	std::function<void(bool)> onReceive;
 	// helpers
-	CMainWindow *pMainWindow;
 	CRandom random;
 	std::vector<unsigned long> speak;
 	CCRC crc;
