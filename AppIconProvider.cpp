@@ -1,5 +1,8 @@
 /*
  *   Copyright (c) 2019-2022 by Thomas A. Early N7TAE
+ *   Copyright (c) 2026 Joshua Murphy VO1RFX
+ *
+ *   Based on the mvoice project by Thomas A. Early N7TAE
  *
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of the GNU General Public License as published by
@@ -16,22 +19,29 @@
  *   Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
 
-#pragma once
+/*
+ *   QML image provider for the MVoice application icon.
+ */
 
-#include <QPushButton>
-#include <QTimer>
-#include "Timer.h"
+#include "AppIconProvider.h"
 
-class CTransmitButton : public QPushButton
+#include <QImage>
+
+#include "IconData.h"
+
+AppIconProvider::AppIconProvider()
+    : QQuickImageProvider(QQuickImageProvider::Image)
 {
-	Q_OBJECT
-public:
-	CTransmitButton(const QString &label, QWidget *parent = nullptr);
+}
 
-	void toggle();
-	void UpdateLabel();
+QImage AppIconProvider::requestImage(const QString &, QSize *size, const QSize &requestedSize)
+{
+    QImage img(icon_image.pixel_data, icon_image.width, icon_image.height, QImage::Format_RGBA8888);
+    if (size)
+        *size = img.size();
 
-private:
-	QString defaultLabel;
-	CTimer timer;
-};
+    if (requestedSize.isValid())
+        return img.scaled(requestedSize.width(), requestedSize.height(), Qt::KeepAspectRatio, Qt::SmoothTransformation);
+
+    return img;
+}

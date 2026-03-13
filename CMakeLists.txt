@@ -61,8 +61,8 @@ include(FindPkgConfig)
 
 find_package(Threads REQUIRED)
 
-# Qt6
-find_package(Qt6 REQUIRED COMPONENTS Widgets)
+# Qt6 and QML
+find_package(Qt6 REQUIRED COMPONENTS Gui Qml Quick QuickControls2)
 
 # ALSA
 pkg_check_modules(ALSA REQUIRED IMPORTED_TARGET alsa)
@@ -103,6 +103,7 @@ endif()
 
 # Main executable
 set(MVOICE_SOURCES
+    MainWindow.cpp
     AppCore.cpp
     AudioManager.cpp
     Base.cpp
@@ -112,15 +113,13 @@ set(MVOICE_SOURCES
     FrameType.cpp
     M17Gateway.cpp
     M17RouteMap.cpp
-    MainWindow.cpp
     Message.cpp
     Packet.cpp
-    SettingsDlg.cpp
-    SMSDlg.cpp
-    AboutDlg.cpp
-    TransmitButton.cpp
     UDPSocket.cpp
     UnixDgramSocket.cpp
+    AppIconProvider.cpp
+    UiController.cpp
+    SettingsController.cpp
 )
 
 if(USE_44100)
@@ -130,12 +129,24 @@ endif()
 add_executable(mvoice ${MVOICE_SOURCES})
 set_target_properties(mvoice PROPERTIES AUTOMOC ON)
 
+qt_add_resources(mvoice qml_resources
+    PREFIX "/"
+    FILES
+        qml/Main.qml
+        qml/SmsWindow.qml
+        qml/SettingsWindow.qml
+        qml/AboutWindow.qml
+)
+
 target_link_libraries(mvoice PRIVATE
     codec2
     Threads::Threads
     PkgConfig::ALSA
     CURL::libcurl
-    Qt6::Widgets
+    Qt6::Gui
+    Qt6::Qml
+    Qt6::Quick
+    Qt6::QuickControls2
 )
 
 target_include_directories(mvoice PRIVATE

@@ -2,6 +2,8 @@
  *   Copyright (c) 2021-2025 Thomas A. Early N7TAE
  *   Copyright (c) 2026 Joshua Murphy VO1RFX
  *
+ *   Based on the mvoice project by Thomas A. Early N7TAE
+ *
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of the GNU General Public License as published by
  *   the Free Software Foundation; either version 2 of the License, or

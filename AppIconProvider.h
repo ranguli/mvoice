@@ -1,5 +1,8 @@
 /*
- *   Copyright (c) 2025 by Thomas A. Early N7TAE
+ *   Copyright (c) 2019-2022 by Thomas A. Early N7TAE
+ *   Copyright (c) 2026 Joshua Murphy VO1RFX
+ *
+ *   Based on the mvoice project by Thomas A. Early N7TAE
  *
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of the GNU General Public License as published by
@@ -16,32 +19,18 @@
  *   Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
 
+/*
+ *   QML image provider for the MVoice application icon.
+ */
+
 #pragma once
 
-#include <QDialog>
+#include <QQuickImageProvider>
 
-class QLineEdit;
-class QPushButton;
-class QTextEdit;
-class CAppCore;
-
-class CSMSDlg : public QDialog
+class AppIconProvider : public QQuickImageProvider
 {
-	Q_OBJECT
 public:
-	explicit CSMSDlg(CAppCore *core, QWidget *parent = nullptr);
-	void UpdateSMS(bool cansend);
+    AppIconProvider();
 
-private slots:
-	void DestinationCSInput();
-	void SendButton();
-	void ClearButton();
-
-private:
-	CAppCore *pCore;
-	QLineEdit *pDSTCallsignInput;
-	QPushButton *pSendButton;
-	QPushButton *pClearButton;
-	QTextEdit *pMessage;
-	bool bDestCS;
+    QImage requestImage(const QString &id, QSize *size, const QSize &requestedSize) override;
 };
